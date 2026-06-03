@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { captureScreenshot, LiveDevice, SOCKET_BASE_URL, startDevice, stopDevice } from '@/lib/device-api';
+import { captureScreenshot, LiveDevice, SOCKET_BASE_URL } from '@/lib/device-api';
 import { cn } from '@/lib/utils';
 
 interface RemoteDeviceViewerProps {
@@ -123,7 +123,6 @@ export function RemoteDeviceViewer({ device, onDeviceUpdate }: RemoteDeviceViewe
 
     try {
       setStreamState('connecting');
-      await startDevice(device.id);
       socketRef.current?.emit('joinDevice', { deviceId: device.id });
     } catch (err) {
       setStreamState('error');
@@ -138,7 +137,6 @@ export function RemoteDeviceViewer({ device, onDeviceUpdate }: RemoteDeviceViewe
 
     try {
       socketRef.current?.emit('leaveDevice', { deviceId: device.id });
-      await stopDevice(device.id);
       setStreamState('stopped');
       setFrame(null);
     } catch (err) {

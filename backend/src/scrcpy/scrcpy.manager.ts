@@ -10,6 +10,7 @@ export class ScrcpyManager {
 
   public async startSession(deviceId: string): Promise<void> {
     if (this.sessions.has(deviceId)) {
+      this.io.to(this.getRoomName(deviceId)).emit('streamStarted', { deviceId });
       return;
     }
 

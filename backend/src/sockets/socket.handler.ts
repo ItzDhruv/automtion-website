@@ -38,24 +38,37 @@ export class SocketHandler {
         return;
       }
 
-      const room = this.getRoom(deviceId);
-      socket.join(room);
-      const roomSize = this.io.sockets.adapter.rooms.get(room)?.size ?? 0;
+      try {
+        const room = this.getRoom(deviceId);
+        socket.join(room);
+        const roomSize = this.io.sockets.adapter.rooms.get(room)?.size ?? 0;
 
-      if (roomSize === 1) {
-        await this.scrcpyManager.startSession(deviceId);
+        if (roomSize === 1) {
+          await this.scrcpyManager.startSession(deviceId);
+        } else {
+          socket.emit('streamStarted', { deviceId });
+        }
+
+        const device = await this.adbService.getDevice(deviceId);
+        socket.emit('deviceInfo', device);
+      } catch (error) {
+        socket.leave(this.getRoom(deviceId));
+        const message = error instanceof Error ? error.message : 'Could not start device stream';
+        socket.emit('streamError', { deviceId, message });
       }
-
-      const device = await this.adbService.getDevice(deviceId);
-      socket.emit('deviceInfo', device);
     });
 
     socket.on('leaveDevice', async ({ deviceId }: { deviceId: string }) => {
       if (!deviceId) {
         return;
       }
-      socket.leave(this.getRoom(deviceId));
-      await this.stopSessionIfNoViewers(deviceId);
+      try {
+        socket.leave(this.getRoom(deviceId));
+        await this.stopSessionIfNoViewers(deviceId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Could not stop device stream';
+        socket.emit('streamError', { deviceId, message });
+      }
     });
   }
 

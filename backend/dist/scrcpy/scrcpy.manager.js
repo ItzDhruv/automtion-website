@@ -11,6 +11,7 @@ class ScrcpyManager {
     }
     async startSession(deviceId) {
         if (this.sessions.has(deviceId)) {
+            this.io.to(this.getRoomName(deviceId)).emit('streamStarted', { deviceId });
             return;
         }
         const session = new scrcpy_service_1.ScrcpyService(deviceId, this.adbService);

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, PointerEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, FormEvent, PointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import {
   ArrowLeft,
@@ -34,15 +34,33 @@ interface Point {
   y: number;
 }
 
+type TouchTrace =
+  | {
+      id: string;
+      type: 'tap';
+      point: Point;
+    }
+  | {
+      id: string;
+      type: 'swipe';
+      start: Point;
+      end: Point;
+    };
+
+type NewTouchTrace = Omit<Extract<TouchTrace, { type: 'tap' }>, 'id'> | Omit<Extract<TouchTrace, { type: 'swipe' }>, 'id'>;
+
 export function RemoteDeviceViewer({ device, onDeviceUpdate }: RemoteDeviceViewerProps) {
   const socketRef = useRef<Socket | null>(null);
   const screenRef = useRef<HTMLDivElement | null>(null);
   const pointerStartRef = useRef<(Point & { at: number }) | null>(null);
+  const traceTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [streamState, setStreamState] = useState<StreamState>('idle');
   const [frame, setFrame] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [touchTraces, setTouchTraces] = useState<TouchTrace[]>([]);
+  const [activeTrace, setActiveTrace] = useState<{ start: Point; end: Point } | null>(null);
 
   const isConnected = device.status === 'device';
   const isStreaming = streamState === 'connecting' || streamState === 'live';
@@ -116,6 +134,37 @@ export function RemoteDeviceViewer({ device, onDeviceUpdate }: RemoteDeviceViewe
       socketRef.current = null;
     };
   }, [device.id, onDeviceUpdate]);
+
+  useEffect(() => {
+    return () => {
+      traceTimersRef.current.forEach((timer) => clearTimeout(timer));
+      traceTimersRef.current = [];
+    };
+  }, []);
+
+  const addTouchTrace = (trace: NewTouchTrace) => {
+    const id = `${Date.now()}-${Math.random()}`;
+    setTouchTraces((current) => [...current, { ...trace, id } as TouchTrace]);
+
+    const timer = setTimeout(() => {
+      setTouchTraces((current) => current.filter((item) => item.id !== id));
+      traceTimersRef.current = traceTimersRef.current.filter((item) => item !== timer);
+    }, 1800);
+
+    traceTimersRef.current.push(timer);
+  };
+
+  const lineStyle = (start: Point, end: Point): CSSProperties => {
+    const width = Math.hypot(end.x - start.x, end.y - start.y);
+    const angle = Math.atan2(end.y - start.y, end.x - start.x) * (180 / Math.PI);
+
+    return {
+      left: start.x,
+      top: start.y,
+      width,
+      transform: `rotate(${angle}deg)`,
+    };
+  };
 
   const startSession = async () => {
     setBusyAction('start');
@@ -192,13 +241,28 @@ export function RemoteDeviceViewer({ device, onDeviceUpdate }: RemoteDeviceViewe
     }
 
     pointerStartRef.current = { ...point, at: Date.now() };
+    setActiveTrace({ start: point, end: point });
     event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const start = pointerStartRef.current;
+
+    if (!start || !isStreaming) {
+      return;
+    }
+
+    const end = getScreenPoint(event);
+    if (end) {
+      setActiveTrace({ start, end });
+    }
   };
 
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     const start = pointerStartRef.current;
     const end = getScreenPoint(event);
     pointerStartRef.current = null;
+    setActiveTrace(null);
 
     if (!start || !end || !isStreaming) {
       return;
@@ -215,6 +279,7 @@ export function RemoteDeviceViewer({ device, onDeviceUpdate }: RemoteDeviceViewe
     };
 
     if (distance > 14) {
+      addTouchTrace({ type: 'swipe', start, end });
       emitControl('swipe', {
         ...base,
         x: start.x,
@@ -228,10 +293,16 @@ export function RemoteDeviceViewer({ device, onDeviceUpdate }: RemoteDeviceViewe
       return;
     }
 
+    addTouchTrace({ type: 'tap', point: end });
     emitControl(duration > 550 ? 'longPress' : 'tap', {
       ...screenPayload(end),
       duration,
     });
+  };
+
+  const onPointerCancel = () => {
+    pointerStartRef.current = null;
+    setActiveTrace(null);
   };
 
   const downloadScreenshot = async () => {
@@ -287,7 +358,9 @@ export function RemoteDeviceViewer({ device, onDeviceUpdate }: RemoteDeviceViewe
             )}
             style={{ aspectRatio }}
             onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
           >
             {frame ? (
               <img
@@ -306,6 +379,26 @@ export function RemoteDeviceViewer({ device, onDeviceUpdate }: RemoteDeviceViewe
                 </div>
               </div>
             )}
+            <div className="pointer-events-none absolute inset-0 z-10">
+              {activeTrace && Math.hypot(activeTrace.end.x - activeTrace.start.x, activeTrace.end.y - activeTrace.start.y) > 8 && (
+                <div className="remote-active-touch-line" style={lineStyle(activeTrace.start, activeTrace.end)} />
+              )}
+              {touchTraces.map((trace) =>
+                trace.type === 'tap' ? (
+                  <div
+                    key={trace.id}
+                    className="remote-touch-dot"
+                    style={{ left: trace.point.x, top: trace.point.y }}
+                  />
+                ) : (
+                  <div
+                    key={trace.id}
+                    className="remote-touch-line"
+                    style={lineStyle(trace.start, trace.end)}
+                  />
+                )
+              )}
+            </div>
           </div>
         </div>
 

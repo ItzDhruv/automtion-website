@@ -89,3 +89,74 @@
     @apply min-h-screen bg-background text-foreground;
   }
 }
+
+@layer components {
+  .remote-touch-dot {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.82);
+    box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.28);
+    animation: remote-touch-dot-fade 1.8s ease-out forwards;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+
+  .remote-touch-line,
+  .remote-active-touch-line {
+    position: absolute;
+    height: 5px;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.84);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3), 0 0 10px rgba(0, 0, 0, 0.45);
+    transform-origin: 0 50%;
+  }
+
+  .remote-touch-line::after,
+  .remote-active-touch-line::after {
+    content: "";
+    position: absolute;
+    right: -4px;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.9);
+    transform: translateY(-50%);
+  }
+
+  .remote-touch-line {
+    animation: remote-touch-line-fade 1.8s ease-out forwards;
+  }
+
+  .remote-active-touch-line {
+    opacity: 0.88;
+  }
+}
+
+@keyframes remote-touch-dot-fade {
+  0% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.45);
+  }
+  25% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.1);
+  }
+}
+
+@keyframes remote-touch-line-fade {
+  0% {
+    opacity: 0.9;
+  }
+  35% {
+    opacity: 0.82;
+  }
+  100% {
+    opacity: 0;
+  }
+}

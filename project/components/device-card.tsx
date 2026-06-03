@@ -1,26 +1,36 @@
 import Link from 'next/link';
-import { Smartphone, Cpu, HardDrive, Radio } from 'lucide-react';
+import { Battery, CalendarClock, MonitorSmartphone, Smartphone } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Device } from '@/lib/types';
+import { LiveDevice } from '@/lib/device-api';
 import { cn } from '@/lib/utils';
 
 interface DeviceCardProps {
-  device: Device;
+  device: LiveDevice;
 }
 
 export function DeviceCard({ device }: DeviceCardProps) {
+  const canConnect = device.status === 'device';
   const statusColors = {
-    available: 'bg-green-500',
-    busy: 'bg-yellow-500',
-    offline: 'bg-gray-500',
+    device: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    offline: 'border-slate-200 bg-slate-50 text-slate-600',
+    unauthorized: 'border-amber-200 bg-amber-50 text-amber-700',
+    unknown: 'border-slate-200 bg-slate-50 text-slate-600',
+  };
+
+  const dotColors = {
+    device: 'bg-emerald-500',
+    offline: 'bg-slate-400',
+    unauthorized: 'bg-amber-500',
+    unknown: 'bg-slate-400',
   };
 
   const statusLabels = {
-    available: 'Available',
-    busy: 'In Use',
+    device: 'Connected',
     offline: 'Offline',
+    unauthorized: 'Unauthorized',
+    unknown: 'Unknown',
   };
 
   return (
@@ -32,9 +42,9 @@ export function DeviceCard({ device }: DeviceCardProps) {
               <Smartphone className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold">{device.name}</h3>
+              <h3 className="font-semibold">{device.model}</h3>
               <p className="text-sm text-muted-foreground">
-                {device.os} {device.osVersion}
+                Android {device.androidVersion}
               </p>
             </div>
           </div>
@@ -43,7 +53,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
             className={cn('gap-1', statusColors[device.status])}
           >
             <div
-              className={cn('h-2 w-2 rounded-full', statusColors[device.status])}
+              className={cn('h-2 w-2 rounded-full', dotColors[device.status])}
             />
             {statusLabels[device.status]}
           </Badge>
@@ -51,34 +61,34 @@ export function DeviceCard({ device }: DeviceCardProps) {
 
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Cpu className="h-4 w-4" />
-            <span>{device.specs.processor}</span>
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <HardDrive className="h-4 w-4" />
+            <MonitorSmartphone className="h-4 w-4" />
             <span>
-              {device.specs.ram} RAM • {device.specs.storage}
+              {device.resolution.width} x {device.resolution.height}
             </span>
           </div>
-          {device.location && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Radio className="h-4 w-4" />
-              <span>{device.location}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Battery className="h-4 w-4" />
+            <span>
+              {device.batteryLevel === null ? 'Battery unavailable' : `${device.batteryLevel}% battery`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <CalendarClock className="h-4 w-4" />
+            <span>{new Date(device.connectedAt).toLocaleString()}</span>
+          </div>
         </div>
       </CardContent>
 
       <CardFooter className="border-t bg-muted/50 p-4">
-        <Button
-          asChild
-          className="w-full"
-          disabled={device.status !== 'available'}
-        >
-          <Link href={`/dashboard/device/${device.id}`}>
-            {device.status === 'available' ? 'Connect' : 'Unavailable'}
-          </Link>
-        </Button>
+        {canConnect ? (
+          <Button asChild className="w-full">
+            <Link href={`/dashboard/device/${device.id}`}>Connect</Link>
+          </Button>
+        ) : (
+          <Button className="w-full" disabled>
+            Unavailable
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

@@ -5,9 +5,16 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  env: {
+    CROWN_TEST_API: process.env.CROWN_TEST_API,
+  },
   images: { unoptimized: true },
   async rewrites() {
-    const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const backendUrl = process.env.CROWN_TEST_API;
+
+    if (!backendUrl) {
+      return [];
+    }
 
     return [
       {

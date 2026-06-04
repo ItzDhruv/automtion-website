@@ -46,6 +46,8 @@ export async function proxyDeviceRequest(
       statusText: response.statusText,
       headers: copyResponseHeaders(response.headers),
     });
+    console.log('BACKEND_BASE_URL=', BACKEND_BASE_URL);
+console.log('TARGET_URL=', targetUrl);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Backend is unavailable';
 

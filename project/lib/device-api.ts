@@ -93,3 +93,52 @@ export async function captureScreenshot(deviceId: string): Promise<Blob> {
 
   return response.blob();
 }
+
+export interface InstallApkResponse {
+  message: string;
+  deviceId: string;
+  fileName: string;
+  adbOutput?: string;
+}
+
+export function installApk(
+  deviceId: string,
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<InstallApkResponse> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+
+    request.open('POST', `${API_BASE_URL}/api/devices/${encodeURIComponent(deviceId)}/install-apk`);
+    request.setRequestHeader('Content-Type', 'application/vnd.android.package-archive');
+    request.setRequestHeader('x-apk-filename', encodeURIComponent(file.name));
+
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress?.(Math.round((event.loaded / event.total) * 85));
+      }
+    };
+
+    request.onload = () => {
+      let body: any = null;
+
+      try {
+        body = request.responseText ? JSON.parse(request.responseText) : null;
+      } catch {
+        body = null;
+      }
+
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.(100);
+        resolve(body as InstallApkResponse);
+        return;
+      }
+
+      reject(new Error(body?.error || body?.message || `Install failed with ${request.status}`));
+    };
+
+    request.onerror = () => reject(new Error('Install request failed'));
+    request.upload.onload = () => onProgress?.(90);
+    request.send(file);
+  });
+}

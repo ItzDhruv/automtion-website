@@ -5,7 +5,7 @@ import { UploadComponent } from '@/components/upload-component';
 
 export default function UploadPage() {
   return (
-    <DashboardLayout>
+    <DashboardLayout> 
       <div className="flex flex-col">
         <div className="border-b px-6 py-4">
           <h1 className="text-3xl font-bold">Install APK</h1>
@@ -14,6 +14,7 @@ export default function UploadPage() {
 
         <div className="flex-1 space-y-6 p-6">
           <UploadComponent />
+          {/* <>Upload test</> */}
         </div>
       </div>
     </DashboardLayout>

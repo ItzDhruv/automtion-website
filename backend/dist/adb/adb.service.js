@@ -56,6 +56,12 @@ class AdbService extends events_1.EventEmitter {
     async captureScreenshot(deviceId) {
         return this.execAdbFile(['-s', deviceId, 'exec-out', 'screencap', '-p']);
     }
+    async installApk(deviceId, apkPath) {
+        return this.execAdb(['-s', deviceId, 'install', '-r', apkPath], {
+            timeout: 5 * 60 * 1000,
+            maxBuffer: 1024 * 1024,
+        });
+    }
     async sendTap(deviceId, x, y) {
         await this.execAdb(['-s', deviceId, 'shell', 'input', 'tap', `${x}`, `${y}`]);
     }
@@ -212,9 +218,9 @@ class AdbService extends events_1.EventEmitter {
             return null;
         }
     }
-    execAdb(args) {
+    execAdb(args, options = {}) {
         return new Promise((resolve, reject) => {
-            (0, child_process_1.execFile)(this.adbPath, args, { encoding: 'utf8' }, (error, stdout, stderr) => {
+            (0, child_process_1.execFile)(this.adbPath, args, { encoding: 'utf8', ...options }, (error, stdout, stderr) => {
                 if (error) {
                     const message = stderr.toString() || error.message;
                     reject(new error_1.AppError(`ADB command failed: ${message}`));

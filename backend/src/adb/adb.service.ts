@@ -1,4 +1,4 @@
-import { ChildProcessWithoutNullStreams, execFile, spawn } from 'child_process';
+import { ChildProcessWithoutNullStreams, ExecFileOptions, execFile, spawn } from 'child_process';
 import { EventEmitter } from 'events';
 import { config } from '../config';
 import { AppError } from '../utils/error';
@@ -71,6 +71,13 @@ export class AdbService extends EventEmitter {
 
   public async captureScreenshot(deviceId: string): Promise<Buffer> {
     return this.execAdbFile(['-s', deviceId, 'exec-out', 'screencap', '-p']);
+  }
+
+  public async installApk(deviceId: string, apkPath: string): Promise<string> {
+    return this.execAdb(['-s', deviceId, 'install', '-r', apkPath], {
+      timeout: 5 * 60 * 1000,
+      maxBuffer: 1024 * 1024,
+    });
   }
 
   public async sendTap(deviceId: string, x: number, y: number): Promise<void> {
@@ -259,9 +266,9 @@ export class AdbService extends EventEmitter {
     }
   }
 
-  private execAdb(args: string[]): Promise<string> {
+  private execAdb(args: string[], options: ExecFileOptions = {}): Promise<string> {
     return new Promise((resolve, reject) => {
-      execFile(this.adbPath, args, { encoding: 'utf8' }, (error, stdout, stderr) => {
+      execFile(this.adbPath, args, { encoding: 'utf8', ...options }, (error, stdout, stderr) => {
         if (error) {
           const message = stderr.toString() || error.message;
           reject(new AppError(`ADB command failed: ${message}`));

@@ -19,6 +19,10 @@ const createDeviceRouter = (deviceService) => {
         limit: '250mb',
         type: ['application/vnd.android.package-archive', 'application/octet-stream'],
     }), controller.installApk);
+    router.post('/:deviceId/run-test', express_2.default.raw({
+        limit: '250mb',
+        type: ['application/java-archive', 'text/x-java-source', 'application/octet-stream'],
+    }), controller.runJavaTest);
     return router;
 };
 exports.createDeviceRouter = createDeviceRouter;

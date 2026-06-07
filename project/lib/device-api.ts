@@ -19,10 +19,29 @@ export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ||
   '';
 
-export const SOCKET_BASE_URL =
-  process.env.NEXT_PUBLIC_SOCKET_BASE_URL?.replace(/\/$/, '') ||
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ||
-  'http://localhost:4000';
+export const SOCKET_BASE_URL = (() => {
+  // Prefer the current page origin for remote domains (ngrok). For local
+  // development (browser on localhost) keep the previous default of
+  // http://localhost:4000 so the client connects to the backend running on
+  // port 4000 when Next dev server runs on 3000.
+  const envSocket = process.env.NEXT_PUBLIC_SOCKET_BASE_URL?.replace(/\/$/, '');
+
+  if (typeof window !== 'undefined' && window.location) {
+    const hostname = window.location.hostname;
+    const origin = window.location.origin.replace(/\/$/, '');
+
+    // If the page is served from localhost, prefer explicit backend env
+    // or localhost:4000 so local dev keeps working.
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return envSocket || process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') || 'http://localhost:4000';
+    }
+
+    // Remote clients (ngrok domain) should connect back to the page origin.
+    return origin;
+  }
+
+  return envSocket || process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') || 'http://localhost:4000';
+})();
 
 export async function apiRequest<T>(
   path: string,
@@ -101,6 +120,13 @@ export interface InstallApkResponse {
   adbOutput?: string;
 }
 
+export interface RunTestResponse {
+  message: string;
+  deviceId: string;
+  fileName: string;
+  output?: string;
+}
+
 export function installApk(
   deviceId: string,
   file: File,
@@ -138,6 +164,63 @@ export function installApk(
     };
 
     request.onerror = () => reject(new Error('Install request failed'));
+    request.upload.onload = () => onProgress?.(90);
+    request.send(file);
+  });
+}
+
+export interface RunTestOptions {
+  testClass?: string;
+  appPackage?: string;
+  appActivity?: string;
+}
+
+export function runTestFile(
+  deviceId: string,
+  file: File,
+  onProgress?: (progress: number) => void,
+  options?: RunTestOptions,
+): Promise<RunTestResponse> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('POST', `${API_BASE_URL}/api/devices/${encodeURIComponent(deviceId)}/run-test`);
+    request.setRequestHeader('Content-Type', file.name.toLowerCase().endsWith('.jar') ? 'application/java-archive' : 'text/x-java-source');
+    request.setRequestHeader('x-test-filename', encodeURIComponent(file.name));
+    if (options?.testClass) {
+      request.setRequestHeader('x-test-class', encodeURIComponent(options.testClass));
+    }
+    if (options?.appPackage) {
+      request.setRequestHeader('x-app-package', encodeURIComponent(options.appPackage));
+    }
+    if (options?.appActivity) {
+      request.setRequestHeader('x-app-activity', encodeURIComponent(options.appActivity));
+    }
+
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress?.(Math.round((event.loaded / event.total) * 85));
+      }
+    };
+
+    request.onload = () => {
+      let body: any = null;
+
+      try {
+        body = request.responseText ? JSON.parse(request.responseText) : null;
+      } catch {
+        body = null;
+      }
+
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.(100);
+        resolve(body as RunTestResponse);
+        return;
+      }
+
+      reject(new Error(body?.error || body?.message || `Test run failed with ${request.status}`));
+    };
+
+    request.onerror = () => reject(new Error('Test execution request failed'));
     request.upload.onload = () => onProgress?.(90);
     request.send(file);
   });

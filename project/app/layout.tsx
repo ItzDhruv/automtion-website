@@ -4,7 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'DeviceCloud - Mobile App Testing in the Cloud',
+  title: 'CrownTest - Mobile App Testing in the Cloud',
   description: 'Test your mobile apps on real iOS and Android devices in the cloud',
   openGraph: {
     images: [

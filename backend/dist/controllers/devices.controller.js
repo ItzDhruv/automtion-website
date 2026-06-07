@@ -88,6 +88,44 @@ class DevicesController {
                 }
             }
         };
+        this.runJavaTest = async (req, res, next) => {
+            let filePath = null;
+            try {
+                if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+                    throw new error_1.AppError('Test upload body is empty', 400);
+                }
+                const rawFileName = String(req.header('x-test-filename') || 'upload.jar');
+                const fileName = this.decodeFileName(rawFileName);
+                const normalizedName = path_1.default.basename(fileName).replace(/[^a-zA-Z0-9._-]/g, '_');
+                if (!normalizedName.toLowerCase().endsWith('.jar') && !normalizedName.toLowerCase().endsWith('.java')) {
+                    throw new error_1.AppError('Only .jar and .java test files are supported', 400);
+                }
+                const uploadDir = await fs_1.promises.mkdtemp(path_1.default.join(os_1.default.tmpdir(), 'tg-live-test-'));
+                filePath = path_1.default.join(uploadDir, normalizedName);
+                await fs_1.promises.writeFile(filePath, req.body);
+                const testClass = String(req.header('x-test-class') || '').trim();
+                const appPackage = String(req.header('x-app-package') || '').trim();
+                const appActivity = String(req.header('x-app-activity') || '').trim();
+                const testOutput = await this.deviceService.runJavaTest(req.params.deviceId, filePath, testClass, {
+                    appPackage: appPackage || undefined,
+                    appActivity: appActivity || undefined,
+                });
+                return res.json({
+                    message: 'Java automation test executed',
+                    deviceId: req.params.deviceId,
+                    fileName,
+                    output: testOutput.trim(),
+                });
+            }
+            catch (error) {
+                next(error);
+            }
+            finally {
+                if (filePath) {
+                    await fs_1.promises.rm(path_1.default.dirname(filePath), { recursive: true, force: true }).catch(() => undefined);
+                }
+            }
+        };
     }
     decodeFileName(fileName) {
         try {

@@ -40,7 +40,7 @@ export default function LoginPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl">Welcome Back</CardTitle>
-            <CardDescription>Sign in to your DeviceCloud account</CardDescription>
+            <CardDescription>Sign in to your CrownTest account</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">

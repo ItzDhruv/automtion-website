@@ -1,8 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdbService = void 0;
 const child_process_1 = require("child_process");
 const events_1 = require("events");
+const path_1 = __importDefault(require("path"));
 const config_1 = require("../config");
 const error_1 = require("../utils/error");
 const adb_utils_1 = require("../utils/adb.utils");
@@ -62,6 +66,27 @@ class AdbService extends events_1.EventEmitter {
             maxBuffer: 1024 * 1024,
         });
     }
+    async runJavaTest(deviceId, localJarPath, testClass) {
+        const remoteName = path_1.default.basename(localJarPath);
+        const remotePath = `/data/local/tmp/${remoteName}`;
+        await this.execAdb(['-s', deviceId, 'push', localJarPath, remotePath], {
+            timeout: 5 * 60 * 1000,
+            maxBuffer: 1024 * 1024,
+        });
+        await this.execAdb(['-s', deviceId, 'shell', 'chmod', '755', remotePath], {
+            timeout: 2 * 60 * 1000,
+            maxBuffer: 1024 * 1024,
+        });
+        const runnerArgs = testClass ? ` -c ${this.shellQuote(testClass)}` : '';
+        const runCommand = `cd /data/local/tmp && uiautomator runtest ${this.shellQuote(remoteName)}${runnerArgs}`;
+        return this.execAdb(['-s', deviceId, 'shell', runCommand], {
+            timeout: 10 * 60 * 1000,
+            maxBuffer: 5 * 1024 * 1024,
+        });
+    }
+    shellQuote(value) {
+        return `'${value.replace(/'/g, "'\\''")}'`;
+    }
     async sendTap(deviceId, x, y) {
         await this.execAdb(['-s', deviceId, 'shell', 'input', 'tap', `${x}`, `${y}`]);
     }
@@ -85,6 +110,32 @@ class AdbService extends events_1.EventEmitter {
     }
     async sendKeyEvent(deviceId, keyEvent) {
         await this.execAdb(['-s', deviceId, 'shell', 'input', 'keyevent', keyEvent]);
+    }
+    async getScreenSize(deviceId) {
+        const output = await this.execAdb(['-s', deviceId, 'shell', 'wm', 'size']);
+        return (0, adb_utils_1.parseWmSize)(output);
+    }
+    async dumpUiHierarchy(deviceId) {
+        await this.execAdb(['-s', deviceId, 'shell', 'uiautomator', 'dump', '/sdcard/window_dump.xml']);
+        return this.execAdb(['-s', deviceId, 'shell', 'cat', '/sdcard/window_dump.xml']);
+    }
+    async launchApp(deviceId, appPackage, appActivity) {
+        if (appActivity) {
+            return this.execAdb(['-s', deviceId, 'shell', 'am', 'start', '-n', `${appPackage}/${appActivity}`], {
+                timeout: 120000,
+                maxBuffer: 1024 * 1024,
+            });
+        }
+        return this.execAdb(['-s', deviceId, 'shell', 'monkey', '-p', appPackage, '-c', 'android.intent.category.LAUNCHER', '1'], {
+            timeout: 120000,
+            maxBuffer: 1024 * 1024,
+        });
+    }
+    async closeApp(deviceId, appPackage) {
+        return this.execAdb(['-s', deviceId, 'shell', 'am', 'force-stop', appPackage], {
+            timeout: 120000,
+            maxBuffer: 1024 * 1024,
+        });
     }
     handleTrackerData(data) {
         this.trackerBuffer += data;

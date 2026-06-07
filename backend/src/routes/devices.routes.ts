@@ -20,6 +20,12 @@ export const createDeviceRouter = (deviceService: DeviceService): Router => {
     }),
     controller.installApk,
   );
-
+  router.post('/:deviceId/run-test',
+    express.raw({
+      limit: '250mb',
+      type: ['application/java-archive', 'text/x-java-source', 'application/octet-stream'],
+    }),
+    controller.runJavaTest,
+  );
   return router;
 };

@@ -256,7 +256,7 @@ export default function LandingPage() {
               Ready to start testing?
             </h2>
             <p className="mb-8 text-lg text-primary-foreground/90">
-              Join thousands of developers who trust DeviceCloud for their mobile
+              Join thousands of developers who trust CrownTest for their mobile
               testing needs
             </p>
             <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
@@ -281,12 +281,12 @@ export default function LandingPage() {
           <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
             <div className="flex items-center space-x-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <span className="text-lg font-bold text-primary-foreground">D</span>
+                <span className="text-lg font-bold text-primary-foreground">CT</span>
               </div>
-              <span className="text-lg font-bold">DeviceCloud</span>
+              <span className="text-lg font-bold">CrownTest</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2024 DeviceCloud. All rights reserved.
+              © 2025 CrownTest. All rights reserved.
             </p>
           </div>
         </div>

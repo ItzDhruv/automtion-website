@@ -1,5 +1,6 @@
 import { ChildProcessWithoutNullStreams, ExecFileOptions, execFile, spawn } from 'child_process';
 import { EventEmitter } from 'events';
+import path from 'path';
 import { config } from '../config';
 import { AppError } from '../utils/error';
 import { parseAdbDevices, parseWmSize, sanitizeTextForAdb } from '../utils/adb.utils';
@@ -80,6 +81,33 @@ export class AdbService extends EventEmitter {
     });
   }
 
+  public async runJavaTest(deviceId: string, localJarPath: string, testClass?: string): Promise<string> {
+    const remoteName = path.basename(localJarPath);
+    const remotePath = `/data/local/tmp/${remoteName}`;
+
+    await this.execAdb(['-s', deviceId, 'push', localJarPath, remotePath], {
+      timeout: 5 * 60 * 1000,
+      maxBuffer: 1024 * 1024,
+    });
+
+    await this.execAdb(['-s', deviceId, 'shell', 'chmod', '755', remotePath], {
+      timeout: 2 * 60 * 1000,
+      maxBuffer: 1024 * 1024,
+    });
+
+    const runnerArgs = testClass ? ` -c ${this.shellQuote(testClass)}` : '';
+    const runCommand = `cd /data/local/tmp && uiautomator runtest ${this.shellQuote(remoteName)}${runnerArgs}`;
+
+    return this.execAdb(['-s', deviceId, 'shell', runCommand], {
+      timeout: 10 * 60 * 1000,
+      maxBuffer: 5 * 1024 * 1024,
+    });
+  }
+
+  private shellQuote(value: string): string {
+    return `'${value.replace(/'/g, "'\\''")}'`;
+  }
+
   public async sendTap(deviceId: string, x: number, y: number): Promise<void> {
     await this.execAdb(['-s', deviceId, 'shell', 'input', 'tap', `${x}`, `${y}`]);
   }
@@ -106,6 +134,37 @@ export class AdbService extends EventEmitter {
 
   public async sendKeyEvent(deviceId: string, keyEvent: string): Promise<void> {
     await this.execAdb(['-s', deviceId, 'shell', 'input', 'keyevent', keyEvent]);
+  }
+
+  public async getScreenSize(deviceId: string): Promise<{ width: number; height: number }> {
+    const output = await this.execAdb(['-s', deviceId, 'shell', 'wm', 'size']);
+    return parseWmSize(output);
+  }
+
+  public async dumpUiHierarchy(deviceId: string): Promise<string> {
+    await this.execAdb(['-s', deviceId, 'shell', 'uiautomator', 'dump', '/sdcard/window_dump.xml']);
+    return this.execAdb(['-s', deviceId, 'shell', 'cat', '/sdcard/window_dump.xml']);
+  }
+
+  public async launchApp(deviceId: string, appPackage: string, appActivity?: string): Promise<string> {
+    if (appActivity) {
+      return this.execAdb(['-s', deviceId, 'shell', 'am', 'start', '-n', `${appPackage}/${appActivity}`], {
+        timeout: 120000,
+        maxBuffer: 1024 * 1024,
+      });
+    }
+
+    return this.execAdb(['-s', deviceId, 'shell', 'monkey', '-p', appPackage, '-c', 'android.intent.category.LAUNCHER', '1'], {
+      timeout: 120000,
+      maxBuffer: 1024 * 1024,
+    });
+  }
+
+  public async closeApp(deviceId: string, appPackage: string): Promise<string> {
+    return this.execAdb(['-s', deviceId, 'shell', 'am', 'force-stop', appPackage], {
+      timeout: 120000,
+      maxBuffer: 1024 * 1024,
+    });
   }
 
   private handleTrackerData(data: string): void {
